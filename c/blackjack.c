@@ -30,123 +30,170 @@ void shuffle(uint8_t* deck) {
     }
 }
 
+// empty input buffer
+void clearInputBuffer() {
+    char c;
+    do {
+        c = getchar();
+    } while (c != '\n' && c != EOF);
+}
+
 // print card using deck index
 void printCard(uint8_t card) {
     uint8_t suit = card / 13;
     uint8_t face = card % 13;
 
     switch(face) {
-        case 0:
-            printf("Ace");
-            break;
-        case 10:
-            printf("Jack");
-            break;
-        case 11:
-            printf("Queen");
-            break;
-        case 12:
-            printf("King");
-            break;
-        default:
-            printf("%d", face + 1);
-            break;
+        case 0:   printf("Ace");           break;
+        case 10:  printf("Jack");          break;
+        case 11:  printf("Queen");         break;
+        case 12:  printf("King");          break;
+        default:  printf("%d", face + 1);  break;
     }
     printf(" of ");
     switch(suit) {
-        case SUIT_CLUBS:
-            printf("Clubs");
-            break;
-        case SUIT_DIAMONDS:  
-            printf("Diamonds");
-            break;
-        case SUIT_HEARTS:
-            printf("Hearts");
-            break;
-        case SUIT_SPADES:
-            printf("Spades");
-            break;
+        case SUIT_CLUBS:     printf("Clubs");     break;
+        case SUIT_DIAMONDS:  printf("Diamonds");  break;
+        case SUIT_HEARTS:    printf("Hearts");    break;
+        case SUIT_SPADES:    printf("Spades");    break;
     }
     printf("\n");
+}
+
+// print each card in hand
+void printHand(uint8_t* hand, uint8_t dealt, uint8_t isPlayer, uint8_t score) {
+    printf("%s: %d\n", (isPlayer) ? "player" : "dealer", score);
+    for (uint8_t i = 0; i < dealt; i++) {
+        printf("  - ");
+        printCard(hand[i]);
+    }
+}
+
+// get score of target hand
+uint8_t evalHand(uint8_t* hand, uint8_t dealt) {
+    uint8_t score = 0;
+
+    for (uint8_t i = 0; i < dealt; i++) {
+        uint8_t face = hand[i] % 13;
+
+        if (face == 0) {
+            score += (score < 11) ? 11 : 1;  // ace
+        } else if (face >= 10) {
+            score += 10;  // jack, queen, king
+        } else {
+            score += (face + 1);
+        }
+    }
+    return score;
 }
 
 int main(void) {
     srand(time(NULL));
 
     uint8_t deck[DECK_SIZE];
-    //   spades   = deck[0:12]
-    //   clubs    = deck[13:25]
-    //   diamonds = deck[26:38]
-    //   hearts   = deck[39:51]
-    //
-    //  A = (hand >= 11) ? 1 : 11  - check on this?
+    uint8_t deckIdx = 0;
 
     uint8_t playerHand[HAND_SIZE];
-    uint8_t dealerHand[HAND_SIZE];
-
-    uint8_t playing = 1;
-    uint8_t matchActive = 1;
-    uint8_t choice = 0;
-
-    uint8_t deckIdx = 0;
     uint8_t playerIdx = 0;
+    uint8_t playerScore = 0;
+
+    uint8_t dealerHand[HAND_SIZE];
     uint8_t dealerIdx = 0;
+    uint8_t dealerScore = 0;
 
-    uint8_t wins = 0;
-    uint8_t losses = 0;
+    uint8_t choice = 0;
+    // uint8_t wins = 0;
+    // uint8_t losses = 0;
 
-    // init deck and hands
     for (uint8_t i = 0; i < DECK_SIZE; i++) {
         deck[i] = i;
     }
 
-    while (playing) {
-        
-        // init
+    while (1) {
         for (uint8_t i = 0; i < HAND_SIZE; i++) {
             playerHand[i] = 0;
             dealerHand[i] = 0;
         }
         shuffle(deck);
+        choice = 0;
+        playerIdx = 0;
+        dealerIdx = 0;
+        deckIdx = 0;
+        playerScore = 0;
+        dealerScore = 0;
 
         // deal initial hand
         for (uint8_t i = 0; i < 2; i++) {
             playerHand[playerIdx++] = deck[deckIdx++];
             dealerHand[dealerIdx++] = deck[deckIdx++];
-
-            printf("player: ");
-            printCard(playerHand[playerIdx-1]);
-            printf("dealer: ");
-            printCard(dealerHand[dealerIdx-1]);
         }
 
-        while (matchActive) {
-            // check if blackjack occurred immediately (Ace + 10)
+        while (1) {
 
-            // get player option - hit,stand,quit
+            dealerScore = evalHand(dealerHand, dealerIdx);
+            if (dealerIdx == 2) {
+                printf("dealer: ??\n  - ");
+                printCard(dealerHand[0]);
+                printf("  - ?? of ????\n");
+            } else {
+                printHand(dealerHand, dealerIdx, 0, dealerScore);
+            }
 
-            // print player hand
+            playerScore = evalHand(playerHand, playerIdx);
+            printHand(playerHand, playerIdx, 1, playerScore);
 
-            // check win or bust
+            while (playerScore < 21) {
+                printf("\n(H)it, (S)tand, or (Q)uit ? ");
+                scanf(" %c", &choice);
 
-            // if (!stand)
-            //   show dealer card
-            //   while (dealer < 17) ; soft 17
-            //     hit
-            //     print card
+                if (choice == 'H' || choice == 'h') {
+                    printf("Hit\n");
+                    printHand(playerHand, playerIdx, 1, playerScore);
+                    playerHand[playerIdx++] = deck[deckIdx++];
+                    playerScore = evalHand(playerHand, playerIdx);
+                } else if (choice == 'S' || choice == 's') {
+                    printf("Stand\n");
+                    printHand(playerHand, playerIdx, 1, playerScore);
+                    break;
+                } else if (choice == 'Q' || choice == 'q') {
+                    printf("Quit\n");
+                    return 0;
+                } else {
+                    printf("invalid input.\n");
+                }
+            }
+
+            if (playerScore > 21) {
+                // TODO: player bust
+                printf("player bust\n");
+            }
+
+            // while (dealer < 17) ; soft 17
+            //   hit
 
             // check scores
+
             // eval game state
 
             break;  // TODO:
         }
+        printf("game over...\n");
 
         // play again?
+        while (1) {
+            printf("play again? (Y)es or (N)o ? ");
+            scanf(" %c", &choice);
 
-        break; // TODO: remove
+            if (choice == 'y' || choice == 'Y') {
+                clearInputBuffer();
+                choice = 0;
+                break;
+            } else if (choice == 'n' || choice == 'N') {
+                return 0;
+            } else {
+                printf("invalid input.\n");
+            }
+        }
     }
-
     return 0;
 }
-
-
