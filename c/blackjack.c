@@ -62,7 +62,7 @@ void printCard(uint8_t card) {
 
 // print each card in hand
 void printHand(uint8_t* hand, uint8_t dealt, uint8_t isPlayer, uint8_t score) {
-    printf("%s: %d\n", (isPlayer) ? "player" : "dealer", score);
+    printf("\n%s: %d\n", (isPlayer) ? "player" : "dealer", score);
     for (uint8_t i = 0; i < dealt; i++) {
         printf("  - ");
         printCard(hand[i]);
@@ -102,8 +102,8 @@ int main(void) {
     uint8_t dealerScore = 0;
 
     uint8_t choice = 0;
-    // uint8_t wins = 0;
-    // uint8_t losses = 0;
+    uint8_t wins = 0;
+    uint8_t losses = 0;
 
     for (uint8_t i = 0; i < DECK_SIZE; i++) {
         deck[i] = i;
@@ -128,59 +128,72 @@ int main(void) {
             dealerHand[dealerIdx++] = deck[deckIdx++];
         }
 
-        while (1) {
+        dealerScore = evalHand(dealerHand, dealerIdx);
+        if (dealerIdx == 2) {
+            printf("\ndealer: ??\n  - ");
+            printCard(dealerHand[0]);
+            printf("  - ?? of ????\n");
+        } else {
+            printHand(dealerHand, dealerIdx, 0, dealerScore);
+        }
+        playerScore = evalHand(playerHand, playerIdx);
+        printHand(playerHand, playerIdx, 1, playerScore);
 
-            dealerScore = evalHand(dealerHand, dealerIdx);
-            if (dealerIdx == 2) {
-                printf("dealer: ??\n  - ");
-                printCard(dealerHand[0]);
-                printf("  - ?? of ????\n");
+        // player turn
+        while (playerScore < 21) {
+            printf("\n(H)it, (S)tand, or (Q)uit ? ");
+            scanf(" %c", &choice);
+
+            if (choice == 'H' || choice == 'h') {
+                printf("player: hit\n");
+                playerHand[playerIdx++] = deck[deckIdx++];
+                playerScore = evalHand(playerHand, playerIdx);
+                printHand(playerHand, playerIdx, 1, playerScore);
+            } else if (choice == 'S' || choice == 's') {
+                printf("player: stand\n");
+                printHand(playerHand, playerIdx, 1, playerScore);
+                break;
+            } else if (choice == 'Q' || choice == 'q') {
+                printf("player: quit\n");
+                return 0;
             } else {
+                printf("invalid input.\n");
+            }
+        }
+        printf("\n");
+
+        if (playerScore > 21) {
+            printf("player bust, dealer won.\n");
+            losses++;
+        } else {
+
+            // dealer turn
+            printHand(dealerHand, dealerIdx, 0, dealerScore);
+            while (dealerScore < 17) {
+                printf("dealer: hit\n");
+                dealerHand[dealerIdx++] = deck[deckIdx++];
+                dealerScore = evalHand(dealerHand, dealerIdx);
                 printHand(dealerHand, dealerIdx, 0, dealerScore);
             }
 
-            playerScore = evalHand(playerHand, playerIdx);
-            printHand(playerHand, playerIdx, 1, playerScore);
-
-            while (playerScore < 21) {
-                printf("\n(H)it, (S)tand, or (Q)uit ? ");
-                scanf(" %c", &choice);
-
-                if (choice == 'H' || choice == 'h') {
-                    printf("Hit\n");
-                    printHand(playerHand, playerIdx, 1, playerScore);
-                    playerHand[playerIdx++] = deck[deckIdx++];
-                    playerScore = evalHand(playerHand, playerIdx);
-                } else if (choice == 'S' || choice == 's') {
-                    printf("Stand\n");
-                    printHand(playerHand, playerIdx, 1, playerScore);
-                    break;
-                } else if (choice == 'Q' || choice == 'q') {
-                    printf("Quit\n");
-                    return 0;
-                } else {
-                    printf("invalid input.\n");
-                }
+            // evaluate scores
+            if (dealerScore > 21) {
+                printf("dealer bust, player won.\n");
+                wins++;
+            } else if (playerScore > dealerScore){
+                printf("player won.\n");
+                wins++;
+            } else if (dealerScore > playerScore) {
+                printf("dealer won.\n");
+                losses++;
+            } else {
+                printf("player and dealer tied.\n");
             }
-
-            if (playerScore > 21) {
-                // TODO: player bust
-                printf("player bust\n");
-            }
-
-            // while (dealer < 17) ; soft 17
-            //   hit
-
-            // check scores
-
-            // eval game state
-
-            break;  // TODO:
         }
-        printf("game over...\n");
 
-        // play again?
+        // prompt for next game
         while (1) {
+            printf("\nwins: %d, losses: %d\n", wins, losses);
             printf("play again? (Y)es or (N)o ? ");
             scanf(" %c", &choice);
 
