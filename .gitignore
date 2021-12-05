@@ -53,3 +53,9 @@ dkms.conf
 
 blackjack
 bootjack
+
+*.img
+*.com
+*.lst
+
+.vscode/
