@@ -12,23 +12,27 @@ deck_size:  equ 52                ; max cards in deck
 hand_size:  equ 6                 ; max cards allowed in hand
 
 start:                            ; ***** program entry *****
-      cli                         ; disable interrupts
-      
+      cli                         ; clear interrupts
+      push cs                     ; 
+      pop ds                      ; 
+
       mov si, msg                 ; pointer to message
       call tty_print              ; print message to terminal
 
+      ; TODO: refactor to less?
       xor bx, bx                  ; i = 0
 _init_deck:
       mov [deck + bx], bl         ; pointer to deck
       inc bx                      ; i++
       cmp bx, deck_size           ; check loop condition
       jb _init_deck               ; while (i < deck_size)
-      ; TODO: memory filled in GDB
+      ; TODO: verify memory filled in GDB
 
-      ; TODO: init random seed
-      mov ah, 0                   ; time resolution
-      int 0x1A                    ; BIOS interrupt - system time
-      mov [seed], dx              ; low order word of tick count
+      call seed_rand              ; init PRNG seed
+
+      ; TODO: verify:
+      ; call next_rand
+
       ; TODO: verify in GDB
 
       ; TODO: reset subroutine
@@ -71,7 +75,7 @@ end:                              ; ***** end of program *****
       hlt                         ; end program
 
 tty_print:                        ; ***** print string to terminal *****
-                                  ; si - pointer to string
+                                  ; in si; pointer to string
                                   ;
       push ax                     ;
       push bx                     ;
@@ -93,10 +97,32 @@ read_kbd:                         ; ***** read char from keyboard *****
       int 0x16                    ; BIOS interrupt - read keyboard
       ret                         ; end read_kbd subroutine
 
+next_rand:                        ; ***** get next random number *****
+                                  ; out ax; new random value
+      push dx                     ;
+      mov ax, 25173               ; LCG multiplier (some large prime)
+      mul word [seed]             ; DX:AX = LGC multiplier * seed
+      add ax, 13849               ; LCG increment (some large prime)
+      mov [seed], ax              ; seed = (mult * seed + inc) % 65536
+      pop dx                      ;
+      ret                         ; end next_rand subroutine
+
+seed_rand:                        ; ***** seed LCG PRNG with system time *****
+                                  ; clobbers ax
+      push cx                     ;
+      push dx                     ;
+      xor ax, ax                  ; ah = time resolution (18.2 Hz)
+      int 0x1A                    ; BIOS interrupt - system time in cx:dx
+      mov [seed], dx              ; store seed value
+                                  ; https://en.wikipedia.org/wiki/Linear_congruential_generator
+      pop dx                      ;
+      pop cx                      ;
+      ret                         ; end seed_rand subroutine
+
                                   ; ***** variables *****
 msg:     db "Bootjack", 10, 13, 0 ;
 deck:    times deck_size db 0     ; deck of cards
-seed:    db 0                     ; random seed
+seed:    db 13                    ; random seed
 
 p_hand:  times hand_size db 0     ; player hand
 p_idx:   db 0                     ; player index
