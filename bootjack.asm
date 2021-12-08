@@ -11,6 +11,24 @@
 deck_size:  equ 52                ; max cards in deck
 hand_size:  equ 6                 ; max cards allowed in hand
 
+                                  ; ***** variables *****
+msg:     db "Bootjack", 10, 13, 0 ;
+deck:    times deck_size db 0     ; deck of cards
+seed:    dw 13                    ; random seed
+
+player:                           ; player struct (8 bytes)
+         db 0                     ; score
+         db 0                     ; index
+         times hand_size db 0     ; hand
+
+dealer:                           ; dealer struct (8 bytes)
+         db 0                     ; score
+         db 0                     ; index
+         times hand_size db 0     ; hand
+
+wins:    db 0                     ; player wins
+losses:  db 0                     ; player losses
+
 start:                            ; ***** program entry *****
       cli                         ; clear interrupts
       push cs                     ; 
@@ -26,20 +44,17 @@ _init_deck:
       inc bx                      ; i++
       cmp bx, deck_size           ; check loop condition
       jb _init_deck               ; while (i < deck_size)
-      ; TODO: verify memory filled in GDB
 
       call seed_rand              ; init PRNG seed
 
-      ; TODO: verify:
-      ; call next_rand
-
+_game_loop:                       ; 
+      call reset                  ; reset game state
       ; TODO: verify in GDB
 
-      ; TODO: reset subroutine
-      ;   - reset player + dealer hands, scores, and indices
-      
-      ; TODO: shuffle deck subroutine ... also figure out randoms
-      
+      call shuffle                ; shuffle deck
+      ; TODO: shuffle deck subroutine
+
+            
       ; TODO: deal subroutine
 
       ; TODO: deal initial hand
@@ -68,11 +83,25 @@ _init_deck:
       ; TODO: check who won
 
       ; TODO: prompt for next game
-
+      ; jmp _game_loop
 
 end:                              ; ***** end of program *****
       jmp $                       ; repeat current line
       hlt                         ; end program
+
+reset:                            ; ***** reset game state *****
+      push si                     ;
+
+      mov si, player              ;
+_struct_loop:                     ; reset player
+      mov byte [si], 0            ; player[i] = 0
+      mov byte [si+0x8], 0        ; dealer[i] = 0
+      inc si                      ; i++
+      cmp si, player+8            ; check loop condition
+      jne _struct_loop            ; while (i < 8)
+
+      pop si                      ;
+      ret                         ; end reset subroutine
 
 tty_print:                        ; ***** print string to terminal *****
                                   ; in si; pointer to string
@@ -119,22 +148,7 @@ seed_rand:                        ; ***** seed LCG PRNG with system time *****
       pop cx                      ;
       ret                         ; end seed_rand subroutine
 
-                                  ; ***** variables *****
-msg:     db "Bootjack", 10, 13, 0 ;
-deck:    times deck_size db 0     ; deck of cards
-seed:    db 13                    ; random seed
-
-p_hand:  times hand_size db 0     ; player hand
-p_idx:   db 0                     ; player index
-p_score: db 0                     ; player score
-
-d_hand:  times hand_size db 0     ; dealer hand
-d_idx:   db 0                     ; dealer index
-d_score: db 0                     ; dealer score
-
-wins:    db 0                     ; player wins
-losses:  db 0                     ; player losses
-
+bootable:
 %ifdef com_file
 %else
                                  ; ***** complete boot sector *****
