@@ -5,54 +5,50 @@
 %else
       org 0x7C00                  ; BIOS entry (IMG)
 %endif
+
       cpu 8086                    ;
       bits 16                     ;
                                   ; ***** constants *****
-deck_size:  equ 52                ; max cards in deck
-hand_size:  equ 6                 ; max cards allowed in hand
+deck_len: equ 52                  ; max cards in deck
+hand_len: equ 6                   ; max cards allowed in hand
+ent_len:  equ 8                   ; size of player/dealer struct
 
-                                  ; ***** variables *****
-msg:     db "Bootjack", 10, 13, 0 ;
-deck:    times deck_size db 0     ; deck of cards
-seed:    dw 13                    ; random seed
-
-player:                           ; player struct (8 bytes)
-         db 0                     ; score
-         db 0                     ; index
-         times hand_size db 0     ; hand
-
-dealer:                           ; dealer struct (8 bytes)
-         db 0                     ; score
-         db 0                     ; index
-         times hand_size db 0     ; hand
-
-wins:    db 0                     ; player wins
-losses:  db 0                     ; player losses
-
-start:                            ; ***** program entry *****
+_start:                           ; ***** program entry *****
       cli                         ; clear interrupts
-      push cs                     ; 
-      pop ds                      ; 
+      xor ax, ax                  ; init essential segment registers
+      mov ds, ax                  ; 
+      mov es, ax                  ;
 
-      mov si, msg                 ; pointer to message
-      call tty_print              ; print message to terminal
+      mov si, welcome             ; pointer to welcome message
+      call print_str              ; print string to terminal
 
-      ; TODO: refactor to less?
       xor bx, bx                  ; i = 0
-_init_deck:
-      mov [deck + bx], bl         ; pointer to deck
+_init_deck:                       ;
+      mov [deck + bx], bl         ; deck[i] = i
       inc bx                      ; i++
-      cmp bx, deck_size           ; check loop condition
-      jb _init_deck               ; while (i < deck_size)
+      cmp bx, deck_len            ; check loop condition
+      jl _init_deck               ; while (i < deck_len)
+
+; verify deck reset - TODO: remove
+;       xor bx, bx
+;       xor ax, ax
+; _temp:
+;       mov al, [deck + bx]
+;       call print_num
+;       mov al, ' '
+;       call print_char
+;       inc bx
+;       cmp bx, deck_len
+;       jl _temp
 
       call seed_rand              ; init PRNG seed
 
 _game_loop:                       ; 
       call reset                  ; reset game state
-      ; TODO: verify in GDB
-
-      call shuffle                ; shuffle deck
+      ;call shuffle                ; shuffle deck
       ; TODO: shuffle deck subroutine
+
+      jmp end
 
             
       ; TODO: deal subroutine
@@ -86,48 +82,85 @@ _game_loop:                       ;
       ; jmp _game_loop
 
 end:                              ; ***** end of program *****
-      jmp $                       ; repeat current line
+      mov si, newline
+      call print_str
+      call print_str
+      call print_str
+      mov ax, 'X'
+      call print_char
+      call print_char
+      call print_char
       hlt                         ; end program
 
 reset:                            ; ***** reset game state *****
       push si                     ;
-
       mov si, player              ;
 _struct_loop:                     ; reset player
-      mov byte [si], 0            ; player[i] = 0
-      mov byte [si+0x8], 0        ; dealer[i] = 0
+      mov byte [si], 1            ; player[i] = 0
+      mov byte [si + ent_len], 1  ; dealer[i] = 0
       inc si                      ; i++
-      cmp si, player+8            ; check loop condition
+      cmp si, player + ent_len    ; check loop condition
       jne _struct_loop            ; while (i < 8)
 
       pop si                      ;
       ret                         ; end reset subroutine
 
-tty_print:                        ; ***** print string to terminal *****
-                                  ; in si; pointer to string
-                                  ;
-      push ax                     ;
-      push bx                     ;
-      mov ah, 0x0E                ; teletype output function
-      mov bx, 0x000F              ; page zero and BL color (graphic mode)
-_bp_msg_loop:                     ;
+print_str:                        ; ***** print string to console *****
+                                  ; input si - pointer to string
+      push si                     ;
+_ps_loop:                         ;
       lodsb                       ; load byte into AL from string (SI)
-      cmp al, 0                   ; check for string null terminator
-      je _bp_msg_done             ; if end of string, leave
-      int 0x10                    ; BIOS interrupt - display one char
-      jmp _bp_msg_loop            ; loop
-_bp_msg_done:                     ;
-      pop bx                      ;
-      pop ax                      ;
-      ret                         ; end tty_print subroutine
+      test al, al                 ; check for string null terminator
+      je _ps_done                 ; if end of string, leave
+      call print_char             ; print a single char to console
+      jmp _ps_loop                ; loop
+_ps_done:                         ;
+      pop si                      ;
+      ret                         ; end print_str subroutine
 
-read_kbd:                         ; ***** read char from keyboard *****
-      mov ah, 0x00                ; keyboard read function
-      int 0x16                    ; BIOS interrupt - read keyboard
-      ret                         ; end read_kbd subroutine
+print_char:                       ; ***** print single char to console *****
+                                  ; input AX - char to print
+	    push ax                     ;
+	    push bx                     ;
+	    push cx                     ;
+	    push dx                     ;
+	    push si                     ;
+	    push di                     ;
+	    mov ah, 0x0E	              ; teletype output function
+	    mov bx, 0x000F	            ; BH page zero and BL color (graphic mode only)
+	    int 0x10		                ; BIOS interrupt - display one char
+	    pop di                      ;
+	    pop si                      ; 
+	    pop dx                      ; 
+	    pop cx                      ; 
+	    pop bx                      ; 
+	    pop ax                      ; 
+	    ret                         ; end subroutine print_char
+
+print_num:                        ; ***** print number to console *****
+                                  ; input AX - number to print
+      push cx                     ;
+      mov dx, 0		                ;
+      mov cx, 10		              ;
+      div cx		                  ; AX = DX:AX / CX
+      push dx                     ;
+      cmp ax, 0                   ; check loop condition
+      je _pn_done                 ; while (ax != 0)
+      call print_num              ; recursive call
+_pn_done:                         ;
+	    pop ax                      ; restore original number
+	    add al, '0'                 ; convert remainder to ASCII
+	    call print_char	            ; print single char to console
+      pop cx                      ;
+	    ret                         ; end print_num subroutine
+
+shuffle:                          ; ***** shuffle deck *****
+      nop ; TODO:
+      
+      ret                         ; end shuffle subroutine
 
 next_rand:                        ; ***** get next random number *****
-                                  ; out ax; new random value
+                                  ; output ax - new random value
       push dx                     ;
       mov ax, 25173               ; LCG multiplier (some large prime)
       mul word [seed]             ; DX:AX = LGC multiplier * seed
@@ -137,7 +170,8 @@ next_rand:                        ; ***** get next random number *****
       ret                         ; end next_rand subroutine
 
 seed_rand:                        ; ***** seed LCG PRNG with system time *****
-                                  ; clobbers ax
+                                  ;
+      push ax                     ;
       push cx                     ;
       push dx                     ;
       xor ax, ax                  ; ah = time resolution (18.2 Hz)
@@ -146,12 +180,32 @@ seed_rand:                        ; ***** seed LCG PRNG with system time *****
                                   ; https://en.wikipedia.org/wiki/Linear_congruential_generator
       pop dx                      ;
       pop cx                      ;
+      pop ax                      ;
       ret                         ; end seed_rand subroutine
 
-bootable:
+                                  ; ***** variables *****
+welcome: db "Bootjack", 10, 13, 0 ; simple welcome message
+newline: db 10, 13, 0             ; \n
+
+deck:    times deck_len db 0      ; deck of cards
+seed:    dw 13                    ; random seed
+
+player:                           ; player struct (8 bytes)
+         db 0                     ; score
+         db 0                     ; index
+         times hand_len db 0      ; hand
+
+dealer:                           ; dealer struct (8 bytes)
+         db 0                     ; score
+         db 0                     ; index
+         times hand_len db 0      ; hand
+
+wins:    db 0                     ; player wins
+losses:  db 0                     ; player losses
+
 %ifdef com_file
 %else
-                                 ; ***** complete boot sector *****
-      times 510 - ($ - $$) db 0  ; pad rest of boot sector
-      db 0x55, 0xAA              ; magic numbers; BIOS bootable
+                                  ; ***** complete boot sector *****
+      times 510 - ($ - $$) db 0   ; pad rest of boot sector
+      dw 0xAA55                   ; magic numbers; BIOS bootable
 %endif

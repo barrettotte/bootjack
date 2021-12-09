@@ -57,5 +57,7 @@ bootjack
 *.img
 *.com
 *.lst
+*.o
+*.elf
 
 .vscode/
