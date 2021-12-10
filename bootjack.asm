@@ -45,8 +45,19 @@ _init_deck:                       ;
 
 _game_loop:                       ; 
       call reset                  ; reset game state
-      ;call shuffle                ; shuffle deck
-      ; TODO: shuffle deck subroutine
+      call shuffle                ; shuffle deck
+
+; verify deck reset - TODO: remove
+      xor bx, bx
+      xor ax, ax
+_temp:
+      mov al, [deck + bx]
+      call print_num
+      mov al, ' '
+      call print_char
+      inc bx
+      cmp bx, deck_len
+      jl _temp  
 
       jmp end
 
@@ -154,17 +165,48 @@ _pn_done:                         ;
       pop cx                      ;
 	    ret                         ; end print_num subroutine
 
-shuffle:                          ; ***** shuffle deck *****
-      nop ; TODO:
-      
+shuffle:                          ; ***** shuffle deck using Fisher-Yates *****
+      push ax                     ;
+      push bx                     ;
+      push cx                     ;
+      push dx                     ;
+
+      mov cx, deck_len-1          ; i = 51
+_shuffle_loop:                    ;
+      call next_rand              ; AX = new random number
+      xor dx, dx                  ; clear dividend
+      mov bx, cx                  ; divisor
+      add bx, 1                   ; (i + 1)
+      div bx                      ; AX = BX / AX, DX = BX % AX
+      mov ax, dx                  ; j = rand() % (i + 1)
+
+      mov bx, ax                  ; 
+      mov dl, [deck + bx]         ; deck[j]
+      push dx                     ; tmp = deck[j]
+      mov bx, cx                  ;
+      mov dl, [deck + bx]         ; deck[i]
+      mov bx, ax                  ;
+      mov [deck + bx], dl         ; deck[j] = deck[i]
+      pop dx                      ; restore tmp
+      mov bx, cx                  ;
+      mov [deck + bx], dl         ; deck[i] = tmp
+
+      dec cx                      ; i--
+      cmp cx, 0                   ; check loop condition
+      jne _shuffle_loop           ; while (i > 0)
+
+      pop dx                      ;
+      pop cx                      ;
+      pop bx                      ;
+      pop ax                      ;
       ret                         ; end shuffle subroutine
 
 next_rand:                        ; ***** get next random number *****
                                   ; output ax - new random value
       push dx                     ;
-      mov ax, 25173               ; LCG multiplier (some large prime)
+      mov ax, 25173               ; LCG multiplier (some arbitrary large prime)
       mul word [seed]             ; DX:AX = LGC multiplier * seed
-      add ax, 13849               ; LCG increment (some large prime)
+      add ax, 13849               ; LCG increment (some arbitrary large prime)
       mov [seed], ax              ; seed = (mult * seed + inc) % 65536
       pop dx                      ;
       ret                         ; end next_rand subroutine
