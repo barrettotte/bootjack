@@ -15,3 +15,4 @@ I also made a C implementation in [c/](c/) that can be run with - `gcc c/blackja
 - [Linear congruential generator](https://en.wikipedia.org/wiki/Linear_congruential_generator)
 - [Interrupt table for BIOS/DOS](https://stanislavs.org/helppc/int_table.html)
 - [PC Interrupts: A Programmer's Reference to BIOS, DOS, and Third Party Calls - Ralf Brown](https://www.amazon.com/PC-Interrupts-Programmers-Reference-Third-dp-0201577976/dp/0201577976)
+- [Code page 437](https://en.wikipedia.org/wiki/Code_page_437)
