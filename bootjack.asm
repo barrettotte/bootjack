@@ -142,7 +142,7 @@ _player_input:
       cmp al, 'h'                   ; hit?
       jne _dealer_turn              ; if no hit, assume stand
 
-      
+
 
       nop
 
@@ -243,11 +243,13 @@ eval_hand:                          ; ***** evaluate entity's hand *****
                                     ; clobbers AX,BX,CX,DX
       push si                       ;
 
-      mov byte [si], 0              ; reset entity.score
-      xor cx, cx                    ; i = 0
+      ;mov byte [si], 0              ; reset entity.score
+      mov cl, [si]                  ; entity.score
+      xor bx, bx                    ; i = 0
 _eval_loop:                         ;
       xor ax, ax                    ;
-      mov bx, cx                    ;
+      push bx
+      ;mov bx, cx                    ;
       mov al, [si + 2 + bx]         ; entity.deck[i]
       mov bx, 13		                ; face offset
       div bl		                    ; AH = AX % BL, AL = AX / BL
@@ -258,26 +260,26 @@ _eval_loop:                         ;
       jg _eval_jqk                  ; if (face in [J,Q,K])
                                     ;
       inc ah                        ; face++
-      add [si], ah                  ; entity.score += (face+1)
+      ;add [si], ah                  ; entity.score += (face+1)
+      add cl, ah                    ;
       jmp _eval_next                ; iterate
 
 _eval_jqk:                          ; Jack, Queen, King
-      add byte [si], 10             ; entity.score += 10
+      ;add byte [si], 10             ; entity.score += 10
+      add cl, 10                    ;
       jmp _eval_next                ; iterate
 
 _eval_ace:                          ; Ace
-      mov bl, [si]                  ; entity.score
-      cmp bl, 11                    ; ace = 11
-      jl _eval_ace_11               ; if (entity.score < 11)
-
-      inc byte [si]                 ; entity.score += 1
-      jmp _eval_next                ; iterate
-_eval_ace_11:                       ;
-      add byte [si], 11             ; entity.score += 11
+      inc cl                        ; entity.score += 1
+      cmp cl, 11                    ; ace = 11
+      jg _eval_next                 ; if (entity.score >= 11)
+      add cl, 10                    ; entity.score += (1 + 10)
 
 _eval_next:                         ;
-      inc cx                        ; i++
-      cmp cl, [si + 1]              ; check loop condition
+      pop bx
+      mov [si], cl                  ; save entity.score
+      inc bx                        ; i++
+      cmp bl, [si + 1]              ; check loop condition
       jl _eval_loop                 ; while (i < entity.idx)
       
       pop si                        ;
