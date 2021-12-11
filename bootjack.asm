@@ -129,9 +129,6 @@ _initial_hands:                     ; deal two
 
       pop si                        ; restore player pointer
 _player_turn:
-      ; TODO: player turn
-      ; while (player < 21)
-      ;   prompt user, do hit, stand, or quit
       mov al, ':'                   ; output prompt
       call print_char               ;
 _player_input:
@@ -142,16 +139,15 @@ _player_input:
       cmp al, 'h'                   ; hit?
       jne _dealer_turn              ; if no hit, assume stand
 
-
-
+      ; TODO: deal hit
+      ; TODO: check bust
+      ; while (score < 21) jmp _player_turn
       nop
 
 _dealer_turn:
       nop
 
       jmp end
-      
-      ; TODO: check player bust
       
       ; TODO: dealer turn
       ; while (dealer < 17)
@@ -167,8 +163,8 @@ _dealer_turn:
 end:                                ; ***** end of program *****
 
 ; TODO: remove - 27 bytes
-;       xor bx, bx
-;       xor ax, ax
+      xor bx, bx
+      xor ax, ax
 ; _temp:
 ;       mov al, [player + bx]
 ;       call print_num
@@ -243,13 +239,11 @@ eval_hand:                          ; ***** evaluate entity's hand *****
                                     ; clobbers AX,BX,CX,DX
       push si                       ;
 
-      ;mov byte [si], 0              ; reset entity.score
-      mov cl, [si]                  ; entity.score
+      mov dl, [si]                  ; entity.score
       xor bx, bx                    ; i = 0
 _eval_loop:                         ;
       xor ax, ax                    ;
       push bx
-      ;mov bx, cx                    ;
       mov al, [si + 2 + bx]         ; entity.deck[i]
       mov bx, 13		                ; face offset
       div bl		                    ; AH = AX % BL, AL = AX / BL
@@ -257,27 +251,22 @@ _eval_loop:                         ;
       cmp ah, 0                     ;
       je _eval_ace                  ; if (face == A)
       cmp ah, 10                    ;
-      jg _eval_jqk                  ; if (face in [J,Q,K])
+      jg _eval_10                   ; if (face in [J,Q,K])
                                     ;
-      inc ah                        ; face++
-      ;add [si], ah                  ; entity.score += (face+1)
-      add cl, ah                    ;
-      jmp _eval_next                ; iterate
-
-_eval_jqk:                          ; Jack, Queen, King
-      ;add byte [si], 10             ; entity.score += 10
-      add cl, 10                    ;
+      add dl, ah                    ;
+      inc dx                        ; face++
       jmp _eval_next                ; iterate
 
 _eval_ace:                          ; Ace
-      inc cl                        ; entity.score += 1
-      cmp cl, 11                    ; ace = 11
-      jg _eval_next                 ; if (entity.score >= 11)
-      add cl, 10                    ; entity.score += (1 + 10)
+      inc dx                        ; entity.score += 1
+      cmp dl, 12                    ;
+      jg _eval_next                 ; if (entity.score > 11)
+_eval_10:                           ; A,J,Q,K
+      add dl, 10                    ;
 
 _eval_next:                         ;
       pop bx
-      mov [si], cl                  ; save entity.score
+      mov [si], dl                  ; save entity.score
       inc bx                        ; i++
       cmp bl, [si + 1]              ; check loop condition
       jl _eval_loop                 ; while (i < entity.idx)
