@@ -33,7 +33,7 @@ _new_deck:                          ;
 
 _game_loop:                         ; main game loop
       xor ax, ax                    ;
-      mov [deck_idx], ax            ; reset deck_idx
+      mov [deck_idx], al            ; reset deck_idx
 
       mov si, player                ; pointer to player entity
 _reset_entities:                    ; reset entities
@@ -44,7 +44,7 @@ _reset_entities:                    ; reset entities
       jne _reset_entities           ; while (i < entity_len)
 
       mov si, deck                  ; pointer to deck of cards
-      mov cx, deck_len-1            ; i = 51
+      mov cl, deck_len-1            ; i = 51
 _shuffle_loop:                      ; shuffle deck of cards
       mov ax, 25173                 ; LCG multiplier (some arbitrary large prime)
       mul word [seed]               ; DX:AX = LGC multiplier * seed
@@ -84,7 +84,7 @@ _initial_hands:                     ; deal two
 
       mov si, player                ;
       call eval_hand                ; evaluate player hand
-      ;call print_hand               ; print player hand
+      call print_hand               ; print player hand
 
 
 ; verify deck - TODO: remove
@@ -101,24 +101,6 @@ _initial_hands:                     ; deal two
 ;       mov si, newline
 ;       call print_str
 ;       call print_str
-
-
-; verify entity hand - TODO: remove
-      mov bx, 2
-_temp_hand:
-      xor ax, ax
-      mov al, [player + bx]
-      push bx
-      call print_card
-      pop bx
-      mov si, newline
-      call print_str
-      inc bx
-      cmp bx, 8
-      jl _temp_hand
-      mov si, newline
-      call print_str
-
 
       xor bx, bx
       xor ax, ax
@@ -180,9 +162,9 @@ print_char:                         ; ***** print single char to console *****
       push ax                       ;
       push bx                       ;
       push si                       ;
-      mov ah, 0x0E	            ; teletype output function
-      mov bx, 0x000F	            ; BH page zero and BL color (graphic mode only)
-      int 0x10		            ; BIOS interrupt - display one char
+      mov ah, 0x0E	                ; teletype output function
+      mov bx, 0x000F	              ; BH page zero and BL color (graphic mode only)
+      int 0x10		                  ; BIOS interrupt - display one char
       pop si                        ; 
       pop bx                        ; 
       pop ax                        ; 
@@ -193,8 +175,8 @@ print_num:                          ; ***** print number to console *****
                                     ; clobbers AX,DX
       push cx                       ;
       xor dx, dx	                  ;
-      mov cl, 10		            ;
-      div cx		            ; AX = CX / AX, DX = CX % AX
+      mov cl, 10		                ;
+      div cx		                    ; AX = CX / AX, DX = CX % AX
       push dx                       ; DX = remainder
       cmp ax, 0                     ; check loop condition
       je _pn_rem                    ; while (ax != 0)
@@ -209,7 +191,6 @@ _pn_rem:                            ;
 deal:                               ; ***** deal a card to an entity *****
                                     ; input SI - pointer to entity
                                     ; clobbers BX
-      push ax                       ;
       xor bx, bx                    ;
       mov bl, [deck_idx]            ;
       mov al, [deck + bx]           ; deck[deck_idx]
@@ -217,7 +198,6 @@ deal:                               ; ***** deal a card to an entity *****
       mov [si + 2 + bx], al         ; entity.hand[entity.idx] = deck[deck_idx]
       inc byte [si + 1]             ; entity.idx++
       inc byte [deck_idx]           ; deck_idx++
-      pop ax                        ;
       ret                           ; end deal subroutine
 
 eval_hand:                          ; ***** evaluate entity's hand *****
@@ -230,21 +210,22 @@ _eval_loop:                         ;
       xor dx, dx	                  ;
       mov bx, cx                    ;
       mov al, [si + 2 + bx]         ; entity.deck[i]
-      mov bx, 13		            ; face offset
-      div bl		            ; AH = AX % BL, AL = AX / BL
+      mov bx, 13		                ; face offset
+      div bl		                    ; AH = AX % BL, AL = AX / BL
                                     ; AH = face, AL = suit
       cmp ah, 0                     ;
       je _eval_ace                  ; if (face == A)
       cmp ah, 10                    ;
-      jge _eval_jqk                 ; if (face in [J,Q,K])
+      jg _eval_jqk                  ; if (face in [J,Q,K])
                                     ;
       inc ah                        ; face++
-      add [si], ah                  ; entity.score += face
+      add [si], ah                  ; entity.score += (face+1)
       jmp _eval_next                ; iterate
 
 _eval_jqk:                          ; Jack, Queen, King
       add byte [si], 10             ; entity.score += 10
       jmp _eval_next                ; iterate
+
 _eval_ace:                          ; Ace
       mov bl, [si]                  ; entity.score
       cmp bl, 11                    ; ace = 11
@@ -252,11 +233,11 @@ _eval_ace:                          ; Ace
 
       inc byte [si]                 ; entity.score += 1
       jmp _eval_next                ; iterate
-
 _eval_ace_11:                       ;
       add byte [si], 11             ; entity.score += 11
+
 _eval_next:                         ;
-      inc cl                        ; i++
+      inc cx                        ; i++
       cmp cl, [si + 1]              ; check loop condition
       jl _eval_loop                 ; while (i < entity.idx)
       
@@ -264,18 +245,20 @@ _eval_next:                         ;
 
 print_card:                         ; ***** print a card *****
                                     ; input AX - card index
-                                    ; clobbers AX,BX,DX
-      mov bx, 13		            ; face offset
-      div bl		            ; AH = AX % BL, AL = AX / BL
+                                    ; clobbers AX,DX
+      push bx                       ;
+
+      mov bx, 13		                ; face offset
+      div bl		                    ; AH = AX % BL, AL = AX / BL
       mov dx, ax                    ; AH = face, AL = suit
-      xor ax, ax                    ;
+      xor ax, ax                    ; TODO: ??
 
       cmp dh, 0
       je _pc_face_ace               ; if (face == 0)
       cmp dh, 10                    ;
       jge _pc_face_letter           ; if (face >= 10)
       mov al, dh                    ;
-      inc al                        ;
+      inc ax                        ; face++
       push dx                       ; save face,suit
       call print_num                ; print face
       pop dx                        ; restore face,suit
@@ -296,7 +279,26 @@ _pc_suit:                           ;
       add al, dl                    ; ASCII index [3,4,5,6]
       call print_char               ; print suit
 
+      pop bx                        ;
       ret                           ; end print_card subroutine
+
+print_hand:                         ; ***** print an entity's hand *****
+                                    ; input SI - pointer to entity
+      mov bx, 2                     ; i = 2
+_ph_loop:                           ;
+      xor ax, ax                    ;
+      mov al, [si + bx]
+      call print_card
+
+      push si
+      mov si, newline
+      call print_str
+      pop si
+
+      inc bx
+      cmp bl, 8
+      jl _ph_loop
+      ret                           ; end print_hand subroutine
 
                                     ; ***** variables *****
 welcome:  db "Bootjack", 13, 10, 0  ; simple welcome message
