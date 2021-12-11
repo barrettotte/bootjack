@@ -163,8 +163,8 @@ _dealer_turn:
 end:                                ; ***** end of program *****
 
 ; TODO: remove - 27 bytes
-      xor bx, bx
-      xor ax, ax
+      ; xor bx, bx
+      ; xor ax, ax
 ; _temp:
 ;       mov al, [player + bx]
 ;       call print_num
@@ -191,16 +191,13 @@ _ps_loop:                           ;
       ret                           ; end print_str subroutine
 
 print_char:                         ; ***** print single char to console *****
-                                    ; input AX - char to print
-      push ax                       ;
+                                    ; input AL - char to print, clobbers AH
       push bx                       ;
-      push si                       ;
       mov ah, 0x0E	                ; teletype output function
       mov bx, 0x000F	              ; BH page zero and BL color (graphic mode only)
       int 0x10		                  ; BIOS interrupt - display one char
-      pop si                        ; 
+      and ah, 0x00                  ; clear AH
       pop bx                        ; 
-      pop ax                        ; 
       ret                           ; end print_char subroutine
 
 print_num:                          ; ***** print number to console *****
@@ -288,6 +285,7 @@ print_card:                         ; ***** print a card *****
       je _pc_face_ace               ; if (face == 0)
       cmp dh, 10                    ;
       jge _pc_face_letter           ; if (face >= 10)
+
       mov al, dh                    ;
       inc ax                        ; face++
       push dx                       ; save face,suit
@@ -304,8 +302,6 @@ _pc_face_letter:                    ;
       call print_char               ; print
 
 _pc_suit:                           ;
-      ;mov al, ' '                   ;
-      ;call print_char               ; print space
       mov al, 3                     ; adjust suit index
       add al, dl                    ; ASCII index [3,4,5,6]
       call print_char               ; print suit
@@ -317,7 +313,7 @@ print_hand:                         ; ***** print an entity's hand *****
                                     ; input SI - pointer to entity
       xor bx, bx                    ; i = 0
 _ph_loop:                           ;
-      xor ax, ax                    ;
+      xor ax, ax
       mov al, [si + bx + 2]         ; entity.hand[i]
       call print_card               ; print card to terminal
       mov al, ' '                   ;
