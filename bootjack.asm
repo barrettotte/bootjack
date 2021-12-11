@@ -79,7 +79,8 @@ _initial_hands:                     ; deal two
       loopne _initial_hands         ; while (i > 0)
 
       call eval_hand                ; evaluate dealer hand
-      ; TODO: print card x2
+      ; TODO: print_card
+      ; TODO: print face down temp
 
       mov si, player                ;
       call eval_hand                ; evaluate player hand
@@ -176,34 +177,34 @@ _ps_loop:                           ;
 
 print_char:                         ; ***** print single char to console *****
                                     ; input AX - char to print
-	    push ax                       ;
-	    push bx                       ;
-	    push si                       ;
-	    mov ah, 0x0E	                ; teletype output function
-	    mov bx, 0x000F	              ; BH page zero and BL color (graphic mode only)
-	    int 0x10		                  ; BIOS interrupt - display one char
-	    pop si                        ; 
-	    pop bx                        ; 
-	    pop ax                        ; 
-	    ret                           ; end print_char subroutine
+      push ax                       ;
+      push bx                       ;
+      push si                       ;
+      mov ah, 0x0E	            ; teletype output function
+      mov bx, 0x000F	            ; BH page zero and BL color (graphic mode only)
+      int 0x10		            ; BIOS interrupt - display one char
+      pop si                        ; 
+      pop bx                        ; 
+      pop ax                        ; 
+      ret                           ; end print_char subroutine
 
 print_num:                          ; ***** print number to console *****
                                     ; input AX - number to print
                                     ; clobbers AX,DX
       push cx                       ;
       xor dx, dx	                  ;
-      mov cl, 10		                ;
-      div cx		                    ; AX = CX / AX, DX = CX % AX
+      mov cl, 10		            ;
+      div cx		            ; AX = CX / AX, DX = CX % AX
       push dx                       ; DX = remainder
       cmp ax, 0                     ; check loop condition
       je _pn_rem                    ; while (ax != 0)
       call print_num                ; recursive call
 _pn_rem:                            ;
-	    pop ax                        ; restore original number
-	    add al, '0'                   ; convert remainder to ASCII
-	    call print_char	              ; print single char to console
+      pop ax                        ; restore original number
+      add al, '0'                   ; convert remainder to ASCII
+      call print_char               ; print single char to console
       pop cx                        ;
-	    ret                           ; end print_num subroutine
+      ret                           ; end print_num subroutine
 
 deal:                               ; ***** deal a card to an entity *****
                                     ; input SI - pointer to entity
@@ -229,18 +230,18 @@ _eval_loop:                         ;
       xor dx, dx	                  ;
       mov bx, cx                    ;
       mov al, [si + 2 + bx]         ; entity.deck[i]
-
-      mov bx, 13		                ; face offset
-      div bl		                    ; AH = AX % BL, AL = AX / BL
+      mov bx, 13		            ; face offset
+      div bl		            ; AH = AX % BL, AL = AX / BL
                                     ; AH = face, AL = suit
       cmp ah, 0                     ;
       je _eval_ace                  ; if (face == A)
       cmp ah, 10                    ;
       jge _eval_jqk                 ; if (face in [J,Q,K])
-                                    ; else
+                                    ;
       inc ah                        ; face++
       add [si], ah                  ; entity.score += face
       jmp _eval_next                ; iterate
+
 _eval_jqk:                          ; Jack, Queen, King
       add byte [si], 10             ; entity.score += 10
       jmp _eval_next                ; iterate
@@ -251,6 +252,7 @@ _eval_ace:                          ; Ace
 
       inc byte [si]                 ; entity.score += 1
       jmp _eval_next                ; iterate
+
 _eval_ace_11:                       ;
       add byte [si], 11             ; entity.score += 11
 _eval_next:                         ;
@@ -263,8 +265,8 @@ _eval_next:                         ;
 print_card:                         ; ***** print a card *****
                                     ; input AX - card index
                                     ; clobbers AX,BX,DX
-      mov bx, 13		                ; face offset
-      div bl		                    ; AH = AX % BL, AL = AX / BL
+      mov bx, 13		            ; face offset
+      div bl		            ; AH = AX % BL, AL = AX / BL
       mov dx, ax                    ; AH = face, AL = suit
       xor ax, ax                    ;
 
@@ -278,6 +280,7 @@ print_card:                         ; ***** print a card *****
       call print_num                ; print face
       pop dx                        ; restore face,suit
       jmp _pc_suit                  ;
+
 _pc_face_ace:                       ;
       mov dh, 10                    ; faces[0] = 'A'
 _pc_face_letter:                    ;
@@ -285,6 +288,7 @@ _pc_face_letter:                    ;
       mov bl, dh                    ; 
       mov al, [faces + bx]          ; get ['J', 'Q', 'K']
       call print_char               ; print
+
 _pc_suit:                           ;
       mov al, ' '                   ;
       call print_char               ; print space
