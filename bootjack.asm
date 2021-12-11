@@ -10,7 +10,7 @@
                                     ; ***** constants *****
 deck_len: equ 52                    ; max cards in deck
 hand_len: equ 6                     ; max cards allowed in hand
-ent_len:  equ 8                     ; size of player/dealer struct
+ent_len:  equ 8                     ; entity struct data length  (2+hand_len)
 
 _start:                             ; ***** program entry *****
       cli                           ; clear interrupts
@@ -21,7 +21,8 @@ _start:                             ; ***** program entry *****
       int 0x1A                      ; BIOS interrupt - system time in CX:DX
       mov [seed], dx                ; init PRNG seed
 
-      mov si, welcome               ; pointer to welcome message
+      ;mov si, s_welcome             ; pointer to welcome message
+      mov si, s_newline             ;
       call print_str                ; print string to terminal
 
       xor bx, bx                    ; i = 0
@@ -35,21 +36,45 @@ _game_loop:                         ; main game loop
       xor ax, ax                    ;
       mov [deck_idx], al            ; reset deck_idx
 
-      mov si, player                ; pointer to player entity
-_reset_entities:                    ; reset entities
-      mov [si], al                  ; player[i] = 0
-      mov [si + ent_len-1], al      ; dealer[i] = 0
-      inc si                        ; i++
-      cmp si, player + ent_len      ; check loop condition
-      jne _reset_entities           ; while (i < entity_len)
+; TODO: running out of space!
+;       mov si, player                ; pointer to player entity
+; _reset_entities:                    ; reset entities
+;       mov [si], al                  ; player[i] = 0
+;       mov [si + ent_len - 1], al    ; dealer[i] = 0
+;       inc si                        ; i++
+;       cmp si, player + ent_len      ; check loop condition
+;       jne _reset_entities           ; while (i < entity_len)
 
       mov si, deck                  ; pointer to deck of cards
-      mov cl, deck_len-1            ; i = 51
+      mov cl, deck_len - 1          ; i = 51
 _shuffle_loop:                      ; shuffle deck of cards
-      mov ax, 25173                 ; LCG multiplier (some arbitrary large prime)
-      mul word [seed]               ; DX:AX = LGC multiplier * seed
-      add ax, 13849                 ; LCG increment (some arbitrary large prime)
-      mov [seed], ax                ; seed = (mult * seed + inc) % 65536
+      ; mov ax, 25173                 ; LCG multiplier (some arbitrary large prime)
+      ; mul word [seed]               ; DX:AX = LGC multiplier * seed
+      ; add ax, 13849                 ; LCG increment (some arbitrary large prime)
+      ; mov [seed], ax                ; seed = (mult * seed + inc) % 65536
+
+      mov al, 251                   ; LCG mulitplier (arbitrary prime)
+      mul byte [seed]               ; AX = AL * operand
+      add ax, 197                   ; LCG increment (arbitrary prime)
+      mov [seed], ax                ;
+
+      ; TODO: try to rewrite... ~2 bytes
+      ; mov bx, cx                    ; set divisor
+      ; inc bx                        ; (i + 1)
+      ; div bl		                    ; AH = AX % BL, AL = AX / BL
+
+      ; mov bl, ah         ; j = rand() % (i + 1)
+      ; mov dl, [si + bx]  ; tmp = deck[j]
+      ; push dx            ; store tmp
+
+      ; mov bl, cl         ; i
+      ; mov dl, [si + bx]  ; deck[i]
+      ; mov bl, ah         ; j
+      ; mov [si + bx], dl  ; deck[j] = deck[i]
+
+      ; pop dx             ; restore tmp
+      ; mov bl, cl         ; i
+      ; mov [si + bx], dl  ; deck[i] = tmp
 
       xor dx, dx                    ; clear dividend
       mov bx, cx                    ; divisor
@@ -73,58 +98,58 @@ _shuffle_loop:                      ; shuffle deck of cards
       mov cl, 2                     ; i = 2
 _initial_hands:                     ; deal two
       mov si, player                ; entity = player
+      push si                       ; 
       call deal                     ; deal card
       mov si, dealer                ; entity = dealer
       call deal                     ; deal card
       loopne _initial_hands         ; while (i > 0)
 
+      mov si, s_dealer              ; dealer label
+      call print_str                ;
       call eval_hand                ; evaluate dealer hand
-      ; TODO: print_card
-      ; TODO: print face down temp
+      xor ax, ax                    ;
+      mov al, [dealer + 2]          ; dealer.hand[0]
+      call print_card               ; print first card
+      mov si, s_unknown             ;
+      call print_str                ; print second card; face down  TODO: if space, print score
 
-      mov si, player                ;
+      mov si, s_newline             ;
+      call print_str                ; separate dealer/player output
+
+      mov si, s_player              ; player label
+      call print_str                ;
+      pop si                        ; restore player pointer
+      push si                       ;
       call eval_hand                ; evaluate player hand
-      call print_hand               ; print player hand
+      call print_hand               ; print player hand   TODO: if space, print score
 
+      mov si, s_newline             ;
+      call print_str                ; end of hand display
+      call print_str                ;
 
-; verify deck - TODO: remove
-;       xor bx, bx
-;       xor ax, ax
-; _temp_deck:
-;       mov al, [deck + bx]
-;       call print_num
-;       mov al, ' '
-;       call print_char
-;       inc bx
-;       cmp bx, deck_len
-;       jl _temp_deck
-;       mov si, newline
-;       call print_str
-;       call print_str
-
-      xor bx, bx
-      xor ax, ax
-_temp:
-      mov al, [player + bx]
-      call print_num
-      mov al, ' '
-      call print_char
-      inc bx
-      cmp bx, 9
-      jl _temp
-
-
-      jmp end
-
-      ; TODO: display hand subroutine
-      ; TODO: display dealer hand
-
-      ; TODO: eval player hand
-      ; TODO: display player hand
-
+      pop si                        ; restore player pointer
+_player_turn:
       ; TODO: player turn
       ; while (player < 21)
       ;   prompt user, do hit, stand, or quit
+      mov al, ':'                   ; output prompt
+      call print_char               ;
+_player_input:
+      mov ah, 0x00                  ; keyboard read
+      int 0x16                      ; BIOS interrupt; key as ASCII in AL
+      or al, 0x20                   ; to lowercase
+
+      cmp al, 'h'                   ; hit?
+      jne _dealer_turn              ; if no hit, assume stand
+
+      
+
+      nop
+
+_dealer_turn:
+      nop
+
+      jmp end
       
       ; TODO: check player bust
       
@@ -140,8 +165,20 @@ _temp:
       ; jmp _game_loop
 
 end:                                ; ***** end of program *****
-      mov si, newline
-      call print_str
+
+; TODO: remove - 27 bytes
+;       xor bx, bx
+;       xor ax, ax
+; _temp:
+;       mov al, [player + bx]
+;       call print_num
+;       mov al, ' '
+;       call print_char
+;       inc bx
+;       cmp bx, 9
+;       jl _temp
+
+      ; TODO: remove
       mov al, 'X'
       call print_char
       hlt                           ; end program
@@ -176,6 +213,7 @@ print_num:                          ; ***** print number to console *****
       push cx                       ;
       xor dx, dx	                  ;
       mov cl, 10		                ;
+      ; TODO: refactor to AAD ???
       div cx		                    ; AX = CX / AX, DX = CX % AX
       push dx                       ; DX = remainder
       cmp ax, 0                     ; check loop condition
@@ -203,11 +241,12 @@ deal:                               ; ***** deal a card to an entity *****
 eval_hand:                          ; ***** evaluate entity's hand *****
                                     ; input SI - pointer to entity
                                     ; clobbers AX,BX,CX,DX
+      push si                       ;
+
       mov byte [si], 0              ; reset entity.score
       xor cx, cx                    ; i = 0
 _eval_loop:                         ;
       xor ax, ax                    ;
-      xor dx, dx	                  ;
       mov bx, cx                    ;
       mov al, [si + 2 + bx]         ; entity.deck[i]
       mov bx, 13		                ; face offset
@@ -241,6 +280,7 @@ _eval_next:                         ;
       cmp cl, [si + 1]              ; check loop condition
       jl _eval_loop                 ; while (i < entity.idx)
       
+      pop si                        ;
       ret                           ; end eval_hand subroutine
 
 print_card:                         ; ***** print a card *****
@@ -248,10 +288,10 @@ print_card:                         ; ***** print a card *****
                                     ; clobbers AX,DX
       push bx                       ;
 
-      mov bx, 13		                ; face offset
+      mov bl, 13		                ; face offset
       div bl		                    ; AH = AX % BL, AL = AX / BL
-      mov dx, ax                    ; AH = face, AL = suit
-      xor ax, ax                    ; TODO: ??
+      xchg ax, dx                   ; AH = face, AL = suit
+      xor ax, ax                    ;
 
       cmp dh, 0
       je _pc_face_ace               ; if (face == 0)
@@ -273,8 +313,8 @@ _pc_face_letter:                    ;
       call print_char               ; print
 
 _pc_suit:                           ;
-      mov al, ' '                   ;
-      call print_char               ; print space
+      ;mov al, ' '                   ;
+      ;call print_char               ; print space
       mov al, 3                     ; adjust suit index
       add al, dl                    ; ASCII index [3,4,5,6]
       call print_char               ; print suit
@@ -284,39 +324,43 @@ _pc_suit:                           ;
 
 print_hand:                         ; ***** print an entity's hand *****
                                     ; input SI - pointer to entity
-      mov bx, 2                     ; i = 2
+      xor bx, bx                    ; i = 0
 _ph_loop:                           ;
       xor ax, ax                    ;
-      mov al, [si + bx]
-      call print_card
+      mov al, [si + bx + 2]         ; entity.hand[i]
+      call print_card               ; print card to terminal
+      mov al, ' '                   ;
+      call print_char               ;
 
-      push si
-      mov si, newline
-      call print_str
-      pop si
-
-      inc bx
-      cmp bl, 8
-      jl _ph_loop
+      inc bx                        ; i++
+      cmp bl, [si + 1]              ; check loop condition
+      jl _ph_loop                   ; while (i < entity.idx)
       ret                           ; end print_hand subroutine
 
                                     ; ***** variables *****
-welcome:  db "Bootjack", 13, 10, 0  ; simple welcome message
-newline:  db 13, 10, 0              ; \n
-faces:    db "AJQK"                 ; non-numeric face values
-seed:     dw 37                     ; random seed; init to arbitrary prime
+;s_welcome: db "Bootjack"            ; simple welcome message
+;           db 13, 10, 13, 10, 0     ;   (13 bytes)
+s_newline: db 13, 10, 0             ; \n
+s_player:  db "P:", 0               ; player entity label
+s_dealer:  db "D:", 0               ; dealer entity label
+s_unknown: db " ?", 0               ; face down card
 
-deck_idx: db 0                      ; deck index
-deck:     times deck_len db 0       ; deck of cards
+faces:     db "AJQK"                ; non-numeric face values
+seed:      dw 37                    ; random seed; init to arbitrary prime
+; seed:      db 7
+
+deck_idx:  db 0                     ; deck index
+deck:      times deck_len db 0      ; deck of cards (52 bytes)
 
 player:                             ; player struct (8 bytes)
-          db 0                      ; score
-          db 0                      ; index
-          times hand_len db 0       ; hand
+           db 0                     ; score
+           db 0                     ; index
+           times hand_len db 0      ; hand
+
 dealer:                             ; dealer struct (8 bytes)
-          db 0                      ; score
-          db 0                      ; index
-          times hand_len db 0       ; hand
+           db 0                     ; score
+           db 0                     ; index
+           times hand_len db 0      ; hand
 
 %ifdef com_file
 %else
