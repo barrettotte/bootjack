@@ -79,7 +79,7 @@ _initial_hands:                     ; deal two
       mov si, s_player              ; player label
       call print_str                ;
       pop si                        ; restore player pointer
-      push si                       ;
+      push si                       ; save player pointer
       call eval_hand                ; evaluate player hand
       call print_hand               ; print player hand
 
@@ -92,7 +92,7 @@ _player_turn:
       call deal                     ; deal to player
       call eval_hand                ; evaluate player hand
       
-      push si                       ;
+      push si                       ; save player pointer
       mov si, s_player              ; print player label
       call print_str                ;
       pop si                        ; restore player pointer
@@ -129,15 +129,15 @@ _player_win:                        ;
       mov al, 'W'                   ; default - player won
       jmp _game_over                ; if player > dealer then player won
 _player_tie:                        ;
-      mov al, 'T'                   ;
+      mov al, 'T'                   ; player tied
 _player_loss:                       ;
-      mov al, 'L'                   ;
+      mov al, 'L'                   ; player lost
 _game_over:                         ;
-      push ax                       ;
+      push ax                       ; save game status
       mov si, s_player              ;
-      call print_str                ;
+      call print_str                ; print player label
       xor ax, ax                    ;
-      pop ax                        ;
+      pop ax                        ; restore game status
       call print_char               ; AL has game status:  W/L
 
       mov al, 0x0A                  ;
@@ -146,7 +146,7 @@ _game_over:                         ;
       call print_char               ; print CR
 
       call get_choice               ; prompt user to continue
-      jmp _game_loop                ; play again
+      jmp _game_loop                ; play again if != 'q'
 end:                                ; ***** end of program *****
       jmp $                         ;
 
@@ -177,9 +177,9 @@ _ps_done:                           ;
 print_char:                         ; ***** print single char to console *****
                                     ; input AL - char to print, clobbers AH
       push bx                       ;
-      mov ah, 0x0E	                ; teletype output function
-      mov bx, 0x000F	              ; BH page zero and BL color (graphic mode only)
-      int 0x10		                  ; BIOS interrupt - display one char
+      mov ah, 0x0E	            ; teletype output function
+      mov bx, 0x000F	            ; BH page zero and BL color (graphic mode only)
+      int 0x10		            ; BIOS interrupt - display one char
       and ah, 0x00                  ; clear AH
       pop bx                        ; 
       ret                           ; end print_char subroutine
@@ -205,8 +205,8 @@ _eval_loop:                         ;
       xor ax, ax                    ;
       push bx
       mov al, [si + 2 + bx]         ; entity.deck[i]
-      mov bx, 13		                ; face offset
-      div bl		                    ; AH = AX % BL, AL = AX / BL
+      mov bx, 13		            ; face offset
+      div bl		            ; AH = AX % BL, AL = AX / BL
                                     ; AH = face, AL = suit
       cmp ah, 0                     ;
       je _eval_ace                  ; if (face == A)
@@ -237,20 +237,20 @@ print_card:                         ; ***** print a card *****
                                     ; clobbers AX,DX
       push bx                       ;
 
-      mov bl, 13		                ; face offset
-      div bl		                    ; AH = AX % BL, AL = AX / BL
+      mov bl, 13		            ; face offset
+      div bl		            ; AH = AX % BL, AL = AX / BL
       xchg ax, dx                   ; AH = face, AL = suit
       xor ax, ax                    ;
 
-      cmp dh, 9                     ;
+      cmp dh, 9                     ; 
       jne _pc_face_letter           ; if (face >= 10)
 
 _pc_face_10:                        ;
-      mov al, '1'                   ;
+      mov al, '1'                   ; for printing '10'
       call print_char               ;
 _pc_face_letter:                    ;
       mov bl, dh                    ; 
-      mov al, [faces + bx]          ; get ['J', 'Q', 'K']
+      mov al, [faces + bx]          ; get face display
       call print_char               ; print face
 
 _pc_suit:                           ;
