@@ -160,7 +160,7 @@ get_choice:                         ; ***** get user choice *****
       or al, 0x20                   ; input to lowercase
       call print_char               ; echo input back
       cmp al, 'q'                   ; 
-      jmp end                       ; end program
+      je end                        ; end program
       ret                           ; end get_choice subroutine
 
 print_str:                          ; ***** print string to console *****
